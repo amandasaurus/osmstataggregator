@@ -84,14 +84,14 @@ class ReligionMap(osmstataggregator.OSMStatsAggregator):
 
 
 
-class IrelandReligionMap(ReligionMap, IrelandArea):
+class IrelandReligionMap(ReligionMap, osmstataggregator.IrelandArea):
     output_table = "religion_irl"
 
 class GlobalReligionMap(ReligionMap):
     output_table = "religion_polygons_world"
     increment = 0.05
 
-class EuropeReligionMap(EuropeArea, ReligionMap):
+class EuropeReligionMap(osmstataggregator.EuropeArea, ReligionMap):
     output_table = "religion_euro"
     increment = 0.025
 
