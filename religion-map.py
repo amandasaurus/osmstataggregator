@@ -1,4 +1,5 @@
 import osmstataggregator
+from collections import Counter
 
 class ReligionMap(osmstataggregator.OSMStatsAggregator):
     input_data_table = "religion_point"
