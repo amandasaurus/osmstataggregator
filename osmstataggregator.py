@@ -6,8 +6,9 @@ import psycopg2
 from collections import Counter
 import sys
 
-def percentage_printer(input_list, msg=None):
-    total = len(input_list)
+def percentage_printer(input, msg=None, total=None):
+    if total is None:
+        total = len(input)
     if msg:
         if msg[-1] != ' ':
             msg = msg + " "
@@ -15,7 +16,7 @@ def percentage_printer(input_list, msg=None):
             msg = '\n'+msg
         sys.stdout.write(msg)
     put_a_dot_every = max(int(total / 100), 1)
-    for (done, element) in enumerate(input_list):
+    for (done, element) in enumerate(input):
         if done % (put_a_dot_every * 10) == 0:
             sys.stdout.write("%s%%" % int(((done+1)*100)/total))
         elif done % put_a_dot_every == 0:
