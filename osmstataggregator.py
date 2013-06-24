@@ -330,3 +330,10 @@ class EuropeArea(object):
     left = -25
     right = 50.3
     increment = 0.1
+
+class BritainAndIrelandArea(object):
+    top = 59.7
+    bottom = 49.8
+    right = 2.1
+    left = -10.9
+    increment = 0.025
