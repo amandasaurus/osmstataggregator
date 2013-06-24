@@ -285,12 +285,15 @@ class OSMStatsAggregator(object):
         #boxes_to_update = [row for row in reading_cursor]
         for (id, raw_data) in percentage_printer(reading_cursor, msg="Calculating properties:", total=total):
             # first element has to be converted back to float
-            raw_data = [[float(item[0])] + item[1:] for item in raw_data]
+            raw_data = [[float(item[0])] + self.clean_row_data(item[1:]) for item in raw_data]
             properties = self.properties(raw_data)
             properties = [(k, properties[k]) for k in sorted(properties.keys())]
             query = ("UPDATE {output_table} SET properties_calculated = TRUE, " + ", ".join(k+" = %s" for k, v in properties) + " WHERE id = {id};").format(output_table=self.output_table, id=id)
             writing_cursor.execute(query, [v for k, v in properties])
 
+
+    def clean_row_data(self, row):
+        return row
         
         
 
