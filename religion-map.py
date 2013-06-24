@@ -8,7 +8,7 @@ class ReligionMap(osmstataggregator.OSMStatsAggregator):
     database = "gis2"
 
     @classmethod
-    def _most_common(rows):
+    def _most_common(kls, rows):
         most_common_religion, count = Counter([x[1] for x in rows]).most_common(1)[0]
         most_common_denomination, count = Counter([x[2] for x in rows if x[1] == most_common_religion]).most_common(1)[0]
         return (most_common_religion, most_common_denomination)
