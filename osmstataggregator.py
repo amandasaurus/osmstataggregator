@@ -229,13 +229,11 @@ class OSMStatsAggregator(object):
         boxes_to_update = db_cursor.fetchall()
         for (id, centre_x, centre_y) in percentage_printer(boxes_to_update, msg="Populating raw data:"):
 
-            # First try a small bbox, we might have our 100 (or desired_num_rows)
+            # First try a small bbox, we might have our 100 (or self.rows_to_take)
             # there, if we get < that, then we iterativly try larger bboxes,
             # stopping once we have gone as big as the max
             # We'll get /some/ results for deserted areas, and it should work
             # faster on dense areas.
-            max_distance = 0.01
-            desired_num_rows = 100
             query = """
                 select
                     st_distance_sphere(ST_SetSRID(ST_MakePoint({cx}, {cy}), {srid}), {input_data_table}.{input_geom_column}) as dist,
@@ -247,7 +245,7 @@ class OSMStatsAggregator(object):
                     data_cols=", ".join(self.input_data_cols), input_geom_column=self.input_geom_col,
                     input_data_table=self.input_data_table,
                     srid=self.srid, cx=centre_x, cy=centre_y,
-                    limit=desired_num_rows,
+                    limit=self.rows_to_take,
                 )
             db_cursor.execute(query)
             rows = db_cursor.fetchall()
