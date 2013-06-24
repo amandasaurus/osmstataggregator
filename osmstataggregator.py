@@ -236,43 +236,25 @@ class OSMStatsAggregator(object):
             # faster on dense areas.
             max_distance = 0.01
             desired_num_rows = 100
-            attempted_checks = 0
-            rows = []
-            while max_distance <= self.max_distance or len(rows) < desired_num_rows or attempted_checks < 10:
-                attempted_checks += 1
-                envelope = "ST_MakeEnvelope({cx}-{d}, {cy}-{d}, {cx}+{d}, {cy}+{d}, {srid})".format(cx=centre_x, cy=centre_y, d=max_distance, srid=self.srid)
-                query = """
-                    select
-                        st_distance_sphere(ST_SetSRID(ST_MakePoint({cx}, {cy}), {srid}), {input_data_table}.{input_geom_column}) as dist,
-                        {data_cols}
-                    from {input_data_table}
-                    where {env} && {input_data_table}.{input_geom_column}
-                    order by dist limit {limit};
-                    """.format(
-                        data_cols=", ".join(self.input_data_cols), input_geom_column=self.input_geom_col,
-                        input_data_table=self.input_data_table,
-                        env=envelope, srid=self.srid,
-                        cx=centre_x, cy=centre_y,
-                        limit=desired_num_rows,
-                    )
-                db_cursor.execute(query)
-                rows = db_cursor.fetchall()
-                if len(rows) < desired_num_rows:
-                    # try again with a bigger box
+            query = """
+                select
+                    st_distance_sphere(ST_SetSRID(ST_MakePoint({cx}, {cy}), {srid}), {input_data_table}.{input_geom_column}) as dist,
+                    {data_cols}
+                from {input_data_table}
+                order by {input_data_table}.{input_geom_column}<->ST_SetSRID(ST_MakePoint({cx}, {cy}), {srid})
+                limit {limit};
+                """.format(
+                    data_cols=", ".join(self.input_data_cols), input_geom_column=self.input_geom_col,
+                    input_data_table=self.input_data_table,
+                    srid=self.srid, cx=centre_x, cy=centre_y,
+                    limit=desired_num_rows,
+                )
+            db_cursor.execute(query)
+            rows = db_cursor.fetchall()
 
-                    if max_distance >= self.max_distance:
-                        # We've tried with the biggest box possible
-                        # use the rows we have
-                        break
-
-                    # Put a max in here, so we know it will try that value at least once
-                    max_distance = min(max_distance * 10, self.max_distance)
-
-                elif len(rows) >= desired_num_rows:
-                    # we have 100 rows
-                    break
-
-            #print "Found data after {0} attempted checks".format(attempted_checks)
+            # Since we're using <-> to speed things up, we can't guarantee they
+            # are ordered exactly, so re-sort to guarantee correct order
+            rows.sort(key=lambda r:r[0])
 
             if len(rows) == 0:
                 query = "UPDATE {output_table} SET raw_data = ARRAY[ARRAY[]]::text[][] WHERE id = {id};".format(output_table=self.output_table, id=id)
