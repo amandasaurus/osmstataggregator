@@ -215,7 +215,6 @@ class OSMStatsAggregator(object):
                     # sea, no land
                     continue
                 else:
-                    #print box
                     bbox['box_wkb'] = box
                     bbox['geom'] = "'" + bbox['box_wkb'] + "'"
 
@@ -281,8 +280,7 @@ class OSMStatsAggregator(object):
         reading_cursor.execute(query)
         total = reading_cursor.fetchall()[0][0]
 
-        query = "SELECT id, raw_data FROM {output_table} WHERE properties_calculated IS FALSE".format(output_table=self.output_table)
-        print query
+        query = "SELECT id, raw_data FROM {output_table} WHERE properties_calculated IS FALSE AND raw_data IS NOT NULL".format(output_table=self.output_table)
         reading_cursor = conn.cursor("reading_properties")
         reading_cursor.execute(query)
         #boxes_to_update = [row for row in reading_cursor]
