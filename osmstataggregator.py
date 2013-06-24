@@ -180,7 +180,7 @@ class OSMStatsAggregator(object):
             if not self.cut_land_boxes:
                 # This is a quick work around, don't trim box based on coastline,
                 # merely include it if it overlaps at all.
-                query = "SELECT 1 from {land_table} where {land_col} && {bbox} limit 1;".format(land_table=self.land_table, land_col=land_col, bbox=bbox['box_wkt'])
+                query = "SELECT 1 from {land_table} where {land_col} && {bbox} limit 1;".format(land_table=self.land_table, land_col=self.land_geom_col, bbox=bbox['box_wkt'])
                 db_cursor.execute(query)
                 rows = db_cursor.fetchall()
                 if len(rows) == 0:
@@ -189,7 +189,6 @@ class OSMStatsAggregator(object):
                     continue
                 else:
                     bbox['geom'] = bbox['box_wkt']
-                    continue
             else:
 
                 query = """SELECT
