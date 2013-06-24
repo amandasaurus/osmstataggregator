@@ -273,15 +273,20 @@ class OSMStatsAggregator(object):
     def calculate_properties(self):
         conn = self.database_connection()
         # Give it a name, so it'll use a server side cursor. This is more memory effecient for large results
-        reading_cursor = conn.cursor("reading_properties")
 
         writing_cursor = conn.cursor()
 
+        reading_cursor = conn.cursor()
+        query = "SELECT count(*) FROM {output_table} WHERE properties_calculated IS FALSE".format(output_table=self.output_table)
+        reading_cursor.execute(query)
+        total = reading_cursor.fetchall()[0][0]
+
         query = "SELECT id, raw_data FROM {output_table} WHERE properties_calculated IS FALSE".format(output_table=self.output_table)
+        print query
+        reading_cursor = conn.cursor("reading_properties")
         reading_cursor.execute(query)
         #boxes_to_update = [row for row in reading_cursor]
-        for (id, raw_data) in reading_cursor:
-            #for (id, raw_data) in percentage_printer(boxes_to_update, msg="Calculating properties:"):
+        for (id, raw_data) in percentage_printer(reading_cursor, msg="Calculating properties:", total=total):
             # first element has to be converted back to float
             raw_data = [[float(item[0])] + item[1:] for item in raw_data]
             properties = self.properties(raw_data)
