@@ -124,6 +124,7 @@ class OSMStatsAggregator(object):
             cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TExT DEFAULT NULL;".format(self.output_table, column))
 
         cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'MULTIPOLYGON', 2);".format(self.output_table, self.output_geom_col, self.srid))
+        cursor.execute("create index {0}__null_raw_data on {0} (raw_data) where raw_data IS NULL;".format(self.output_table))
         conn.commit()
 
 
