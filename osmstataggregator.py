@@ -24,6 +24,8 @@ def percentage_printer(input, msg=None, total=None):
 
         yield element
 
+    sys.stdout.write("done\n")
+
 
 def frange(start, stop, step=None):
     """A float-capable 'range' replacement"""
