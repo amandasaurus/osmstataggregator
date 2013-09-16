@@ -87,12 +87,15 @@ class ReligionMap(osmstataggregator.OSMStatsAggregator):
     def clean_row_data(self, row):
         return row
 
+class PointMap(object):
+    output_geom_type = 'point'
+
 class IrelandReligionMap(ReligionMap, osmstataggregator.IrelandArea):
     output_table = "religion_irl"
 
-class GlobalReligionMap(ReligionMap):
-    output_table = "religion_polygons_world"
-    increment = 0.05
+class GlobalReligionMap(ReligionMap, PointMap):
+    output_table = "religion_points_world"
+    increment = 0.1
 
 class EuropeReligionMap(osmstataggregator.EuropeArea, ReligionMap):
     output_table = "religion_euro_big"
@@ -100,4 +103,4 @@ class EuropeReligionMap(osmstataggregator.EuropeArea, ReligionMap):
     cut_land_boxes = False
 
 if __name__ == '__main__':
-    EuropeReligionMap().main()
+    GlobalReligionMap().main()
