@@ -26,6 +26,16 @@ def percentage_printer(input, msg=None, total=None):
 
     sys.stdout.write("done\n")
 
+def batch(itr, count=1000):
+    current_buffer = []
+    for el in itr:
+        current_buffer.append(el)
+        if len(current_buffer) >= count:
+            yield current_buffer
+            current_buffer = []
+
+    if len(current_buffer) != 0:
+        yield current_buffer
 
 def frange(start, stop, step=None):
     """A float-capable 'range' replacement"""
