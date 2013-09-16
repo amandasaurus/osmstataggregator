@@ -55,6 +55,9 @@ class OSMStatsAggregator(object):
     rows_to_take = 100
 
     def parse_args(self):
+        """
+        Parse command line options and figure out the settings
+        """
         parser = argparse.ArgumentParser()
 
         # for bix size
@@ -262,12 +265,6 @@ class OSMStatsAggregator(object):
         db_cursor.execute(query)
         boxes_to_update = db_cursor.fetchall()
         for (id, centre_x, centre_y) in percentage_printer(boxes_to_update, msg="Populating raw data:"):
-
-            # First try a small bbox, we might have our 100 (or self.rows_to_take)
-            # there, if we get < that, then we iterativly try larger bboxes,
-            # stopping once we have gone as big as the max
-            # We'll get /some/ results for deserted areas, and it should work
-            # faster on dense areas.
             query = """
                 select
                     st_distance_sphere(ST_SetSRID(ST_MakePoint({cx}, {cy}), {srid}), {input_data_table}.{input_geom_column}) as dist,
