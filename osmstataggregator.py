@@ -45,6 +45,7 @@ class OSMStatsAggregator(object):
     #land = None
     #output_table = None
     output_geom_col = "the_geom"
+    output_geom_type = "polygon"
     #input_data_table = "whatever"
     input_geom_col = "the_geom"
     #database = None
@@ -67,6 +68,7 @@ class OSMStatsAggregator(object):
 
         parser.add_argument('--output-table', default=self.output_table, type=str)
         parser.add_argument('--output-geom-col', default=self.output_geom_col, type=str)
+        parser.add_argument('--output-geom-type', default=self.output_geom_type, choices=['polygon', 'point'])
 
         parser.add_argument('-d', '--database', default=self.database, type=str)
         parser.add_argument('--max-distance', default=30.0, type=float)
@@ -124,9 +126,15 @@ class OSMStatsAggregator(object):
 
         cursor.execute("CREATE TABLE {0} (id serial primary key, raw_data text[][] default NULL, properties_calculated boolean DEFAULT FALSE);".format(self.output_table))
         for column in possible_columns:
-            cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TExT DEFAULT NULL;".format(self.output_table, column))
+            cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TEXT DEFAULT NULL;".format(self.output_table, column))
 
-        cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'MULTIPOLYGON', 2);".format(self.output_table, self.output_geom_col, self.srid))
+        if self.output_geom_type == 'polygon':
+            cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'MULTIPOLYGON', 2);".format(self.output_table, self.output_geom_col, self.srid))
+        elif self.output_geom_type == 'point':
+            cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'POINT', 2);".format(self.output_table, self.output_geom_col, self.srid))
+        else:
+            raise ValueError
+
         cursor.execute("create index {0}__null_raw_data on {0} (raw_data) where raw_data IS NULL;".format(self.output_table))
         cursor.execute("create index {0}__properties_calculated on {0} (properties_calculated);".format(self.output_table))
         conn.commit()
@@ -155,8 +163,18 @@ class OSMStatsAggregator(object):
                 this_maxlat, this_maxlon = this_minlat + self.increment, this_minlon + self.increment
 
                 bbox_wkt = "ST_Multi(ST_MakeEnvelope({0}, {1}, {2}, {3}, {4}))".format(this_minlon, this_minlat, this_maxlon, this_maxlat, self.srid)
+                point_wkt = "ST_SetSRID(ST_Point({0}, {1}), {2})".format(centre_lon, centre_lat, self.srid)
+                if self.output_geom_type == 'point':
+                    geom_wkt = point_wkt
+                elif self.output_geom_type == 'polygon':
+                    geom_wkt = bbox_wkt
+                else:
+                    raise TypeError
+
                 yield {
                     'box_wkt': bbox_wkt,
+                    'point_wkt': point_wkt,
+                    'geom_wkt': geom_wkt,
                     'centre_lat': centre_lat,
                     'centre_lon': centre_lon,
                     'centre_y': centre_lat,
@@ -177,10 +195,8 @@ class OSMStatsAggregator(object):
 
 
         for bbox in self.generate_boxes():
-            if not self.cut_land_boxes:
-                # This is a quick work around, don't trim box based on coastline,
-                # merely include it if it overlaps at all.
-                query = "SELECT 1 from {land_table} where {land_col} && {bbox} limit 1;".format(land_table=self.land_table, land_col=self.land_geom_col, bbox=bbox['box_wkt'])
+            if self.output_geom_type == 'point':
+                query = "SELECT 1 from {land_table} where ST_Contains({land_col}, {geom}) limit 1;".format(land_table=self.land_table, land_col=self.land_geom_col, geom=bbox['point_wkt'])
                 db_cursor.execute(query)
                 rows = db_cursor.fetchall()
                 if len(rows) == 0:
@@ -188,34 +204,47 @@ class OSMStatsAggregator(object):
                     # continue to next bbox
                     continue
                 else:
-                    bbox['geom'] = bbox['box_wkt']
-            else:
-
-                query = """SELECT
-                        ST_Multi(ST_Union(
-                            CASE
-                                WHEN ST_Within({bbox}, {land_table}.{land_col}) THEN {bbox}
-                                WHEN ST_Within({land_table}.{land_col}, {bbox}) THEN ST_Multi({land_table}.{land_col})
-                                WHEN
-                                        ST_Intersects({land_table}.{land_col}, {bbox})
-                                    THEN
-                                        ST_CollectionExtract(ST_Multi(ST_Intersection({land_table}.{land_col}, {bbox})), 3)
-                                ELSE NULL
-                            END
-                        )) AS geom
-                        FROM
-                            {land_table} WHERE {land_col} && {bbox};
-                            """.format(land_table=self.land_table, land_col=self.land_geom_col, bbox=bbox['box_wkt'])
-                db_cursor.execute(query)
-                rows = db_cursor.fetchall()
-                assert len(rows) == 1
-                box = rows[0][0]
-                if box is None:
-                    # sea, no land
-                    continue
+                    bbox['geom'] = bbox['point_wkt']
+            elif self.output_geom_type == 'polygon':
+                if not self.cut_land_boxes:
+                    # This is a quick work around, don't trim box based on coastline,
+                    # merely include it if it overlaps at all.
+                    query = "SELECT 1 from {land_table} where {land_col} && {bbox} limit 1;".format(land_table=self.land_table, land_col=self.land_geom_col, bbox=bbox['box_wkt'])
+                    db_cursor.execute(query)
+                    rows = db_cursor.fetchall()
+                    if len(rows) == 0:
+                        # no results, so this bbox doesn't overlap any land
+                        # continue to next bbox
+                        continue
+                    else:
+                        bbox['geom'] = bbox['box_wkt']
                 else:
-                    bbox['box_wkb'] = box
-                    bbox['geom'] = "'" + bbox['box_wkb'] + "'"
+
+                    query = """SELECT
+                            ST_Multi(ST_Union(
+                                CASE
+                                    WHEN ST_Within({bbox}, {land_table}.{land_col}) THEN {bbox}
+                                    WHEN ST_Within({land_table}.{land_col}, {bbox}) THEN ST_Multi({land_table}.{land_col})
+                                    WHEN
+                                            ST_Intersects({land_table}.{land_col}, {bbox})
+                                        THEN
+                                            ST_CollectionExtract(ST_Multi(ST_Intersection({land_table}.{land_col}, {bbox})), 3)
+                                    ELSE NULL
+                                END
+                            )) AS geom
+                            FROM
+                                {land_table} WHERE {land_col} && {bbox};
+                                """.format(land_table=self.land_table, land_col=self.land_geom_col, bbox=bbox['box_wkt'])
+                    db_cursor.execute(query)
+                    rows = db_cursor.fetchall()
+                    assert len(rows) == 1
+                    box = rows[0][0]
+                    if box is None:
+                        # sea, no land
+                        continue
+                    else:
+                        bbox['box_wkb'] = box
+                        bbox['geom'] = "'" + bbox['box_wkb'] + "'"
 
 
             query = "INSERT INTO {output_table} ( {output_geom_col} ) VALUES ( {bbox} );".format(output_table=self.output_table, output_geom_col=self.output_geom_col, bbox=bbox['geom'])
