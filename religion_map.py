@@ -84,6 +84,8 @@ class ReligionMap(osmstataggregator.OSMStatsAggregator):
         return results
 
 
+    def clean_row_data(self, row):
+        return row
 
 class IrelandReligionMap(ReligionMap, osmstataggregator.IrelandArea):
     output_table = "religion_irl"
