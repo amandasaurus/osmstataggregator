@@ -83,6 +83,8 @@ class OSMStatsAggregator(object):
 
         parser.add_argument('--rows-to-take', type=int, default=self.rows_to_take)
 
+        parser.add_argument('--recalculate-properties',action='store_true', default=False)
+
         # FIXME clean up SRID. we have it twice
         # FIXME --input-*-* are all over the place
         args = parser.parse_args()
@@ -299,9 +301,13 @@ class OSMStatsAggregator(object):
 
     def calculate_properties(self):
         conn = self.database_connection()
+
         # Give it a name, so it'll use a server side cursor. This is more memory effecient for large results
 
         writing_cursor = conn.cursor()
+
+        if self.recalculate_properties:
+            writing_cursor.execute("UPDATE {output_table} SET properties_calculated = FALSE;".format(output_table=self.output_table))
 
         reading_cursor = conn.cursor()
         query = "SELECT count(*) FROM {output_table} WHERE properties_calculated IS FALSE".format(output_table=self.output_table)
