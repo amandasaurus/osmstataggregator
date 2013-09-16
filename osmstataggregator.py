@@ -139,7 +139,7 @@ class OSMStatsAggregator(object):
 
         possible_columns = sorted(self.properties([]).keys())
 
-        cursor.execute("CREATE TABLE {0} (id serial primary key, raw_data text[][] default NULL, properties_calculated boolean DEFAULT FALSE);".format(self.output_table))
+        cursor.execute("CREATE TABLE {0} (id serial primary key, raw_data text[] default NULL, properties_calculated boolean DEFAULT FALSE);".format(self.output_table))
         for column in possible_columns:
             cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TEXT DEFAULT NULL;".format(self.output_table, column))
 
@@ -279,43 +279,35 @@ class OSMStatsAggregator(object):
         db_cursor = conn.cursor()
 
         if self.output_geom_type == 'polygon':
-            query = "SELECT id, (ST_XMax({geom})+ST_XMin({geom}))/2 as centre_x, (ST_YMax({geom})+ST_YMin({geom}))/2 as centre_y FROM {output_table} WHERE raw_data IS NULL AND NOT ST_IsEmpty({geom});".format(output_table=self.output_table, geom=self.output_geom_col)
+            output_geom_as_point = "ST_Centroid(ST_Box2d({output_table}.{output_geom_col}))".format(output_table=self.output_table, output_geom_col=self.output_geom_col)
         elif self.output_geom_type == 'point':
-            query = "SELECT id, ST_X({geom}) as centre_x, ST_Y({geom}) as centre_y FROM {output_table} WHERE raw_data IS NULL AND NOT ST_IsEmpty({geom});".format(output_table=self.output_table, geom=self.output_geom_col)
+            # already a point
+            output_geom_as_point = self.output_table+"."+self.output_geom_col
         else:
             raise TypeError
+        
+        data_cols = ", '|', ".join(self.input_data_cols)
+
+        # do
+        query = """update
+                        {output_table}
+                    set raw_data = (
+                        select array(select
+                            CONCAT(
+                                ST_Distance_Sphere({input_data_table}.{input_geom_col}, {output_geom_as_point})::text,
+                                '|',
+                                {data_cols}
+                                )
+                            from {input_data_table} order by {input_data_table}.{input_geom_col}<->{output_geom_as_point}
+                            limit {limit}
+                            ))
+                    where raw_data IS NULL;"""
+        query = query.format(
+            output_table=self.output_table, input_data_table=self.input_data_table, input_geom_col=self.input_geom_col,
+            data_cols = data_cols, output_geom_as_point=output_geom_as_point,
+            limit=self.rows_to_take,
+        )
         db_cursor.execute(query)
-        boxes_to_update = db_cursor.fetchall()
-        for (id, centre_x, centre_y) in percentage_printer(boxes_to_update, msg="Populating raw data:"):
-            query = """
-                select
-                    st_distance_sphere(ST_SetSRID(ST_MakePoint({cx}, {cy}), {srid}), {input_data_table}.{input_geom_column}) as dist,
-                    {data_cols}
-                from {input_data_table}
-                order by {input_data_table}.{input_geom_column}<->ST_SetSRID(ST_MakePoint({cx}, {cy}), {srid})
-                limit {limit};
-                """.format(
-                    data_cols=", ".join(self.input_data_cols), input_geom_column=self.input_geom_col,
-                    input_data_table=self.input_data_table,
-                    srid=self.srid, cx=centre_x, cy=centre_y,
-                    limit=self.rows_to_take,
-                )
-            db_cursor.execute(query)
-            rows = db_cursor.fetchall()
-
-            # Since we're using <-> to speed things up, we can't guarantee they
-            # are ordered exactly, so re-sort to guarantee correct order
-            rows.sort(key=lambda r:r[0])
-
-            if len(rows) == 0:
-                query = "UPDATE {output_table} SET raw_data = ARRAY[ARRAY[]]::text[][] WHERE id = {id};".format(output_table=self.output_table, id=id)
-                db_cursor.execute(query)
-            else:
-                rows = [[str(x) for x in row] for row in rows]
-                #raw_data = 'ARRAY[' + ", ".join("ARRAY["+",".join(repr(str(x)) for x in row)+"]" for row in rows) + ']'
-                query = "UPDATE {output_table} SET raw_data = %s WHERE id = %s;".format(output_table=self.output_table)
-                db_cursor.execute(query, [rows, id])
-            
         conn.commit()
 
     def calculate_properties(self):
@@ -338,7 +330,7 @@ class OSMStatsAggregator(object):
         reading_cursor.execute(query)
         #boxes_to_update = [row for row in reading_cursor]
         for (id, raw_data) in percentage_printer(reading_cursor, msg="Calculating properties:", total=total):
-            # first element has to be converted back to float
+            raw_data = [x.split("|", 3) for x in raw_data]
             raw_data = [[float(item[0])] + self.clean_row_data(item[1:]) for item in raw_data]
             properties = self.properties(raw_data)
             properties = [(k, properties[k]) for k in sorted(properties.keys())]
