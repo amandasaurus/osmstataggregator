@@ -93,7 +93,7 @@ class PointMap(object):
 class IrelandReligionMap(ReligionMap, osmstataggregator.IrelandArea):
     output_table = "religion_irl"
 
-class GlobalReligionMap(ReligionMap, PointMap):
+class GlobalReligionMap(PointMap, ReligionMap):
     output_table = "religion_points_world"
     increment = 0.1
 
