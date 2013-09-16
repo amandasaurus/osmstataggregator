@@ -142,6 +142,7 @@ class OSMStatsAggregator(object):
 
         cursor.execute("create index {0}__null_raw_data on {0} (raw_data) where raw_data IS NULL;".format(self.output_table))
         cursor.execute("create index {0}__properties_calculated on {0} (properties_calculated);".format(self.output_table))
+        cursor.execute("create index {0}__{1} on {0} using gist ({1});".format(self.output_table, self.output_geom_col))
         conn.commit()
 
 
