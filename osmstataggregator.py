@@ -210,18 +210,24 @@ class OSMStatsAggregator(object):
             return
 
 
-        for bbox in self.generate_boxes():
-            if self.output_geom_type == 'point':
-                query = "SELECT 1 from {land_table} where ST_Contains({land_col}, {geom}) limit 1;".format(land_table=self.land_table, land_col=self.land_geom_col, geom=bbox['point_wkt'])
+        if self.output_geom_type == 'point':
+            ## For points, we first put all the points in the DB
+
+            # dodgy string joining for SQL here. Here be dragons. need it cause we need postgres to evaluate the function calls
+            query_prefix = "INSERT INTO {output_table} ( {output_geom_col} ) VALUES ".format(output_table=self.output_table, output_geom_col=self.output_geom_col)
+            for bbox_groups in batch(self.generate_boxes(), 1000):
+                query = query_prefix + ", ".join("("+x['point_wkt']+")" for x in bbox_groups) + ";"
                 db_cursor.execute(query)
-                rows = db_cursor.fetchall()
-                if len(rows) == 0:
-                    # no results, so this bbox doesn't overlap any land
-                    # continue to next bbox
-                    continue
-                else:
-                    bbox['geom'] = bbox['point_wkt']
-            elif self.output_geom_type == 'polygon':
+
+            ## ... then we remove the ones that aren't on the ground
+            print "\nRemoving non-land points..."
+            query = "delete from {output_table} where not exists (select 1 from {land_table} where ST_Contains({land_table}.{land_col}, {output_table}.{output_geom_col}) limit 1);".format(output_table=self.output_table, land_table=self.land_table, land_col=self.land_geom_col, output_geom_col=self.output_geom_col)
+            db_cursor.execute(query)
+            print "removed."
+
+
+        elif self.output_geom_type == 'polygon':
+            for bbox in self.generate_boxes():
                 if not self.cut_land_boxes:
                     # This is a quick work around, don't trim box based on coastline,
                     # merely include it if it overlaps at all.
@@ -263,8 +269,8 @@ class OSMStatsAggregator(object):
                         bbox['geom'] = "'" + bbox['box_wkb'] + "'"
 
 
-            query = "INSERT INTO {output_table} ( {output_geom_col} ) VALUES ( {bbox} );".format(output_table=self.output_table, output_geom_col=self.output_geom_col, bbox=bbox['geom'])
-            db_cursor.execute(query)
+                query = "INSERT INTO {output_table} ( {output_geom_col} ) VALUES ( {bbox} );".format(output_table=self.output_table, output_geom_col=self.output_geom_col, bbox=bbox['geom'])
+                db_cursor.execute(query)
 
         conn.commit()
 
