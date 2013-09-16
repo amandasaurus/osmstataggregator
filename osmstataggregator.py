@@ -261,7 +261,12 @@ class OSMStatsAggregator(object):
         conn = self.database_connection()
         db_cursor = conn.cursor()
 
-        query = "SELECT id, (ST_XMax({geom})+ST_XMin({geom}))/2 as centre_x, (ST_YMax({geom})+ST_YMin({geom}))/2 as centre_y FROM {output_table} WHERE raw_data IS NULL AND NOT ST_IsEmpty({geom});".format(output_table=self.output_table, geom=self.output_geom_col)
+        if self.output_geom_type == 'polygon':
+            query = "SELECT id, (ST_XMax({geom})+ST_XMin({geom}))/2 as centre_x, (ST_YMax({geom})+ST_YMin({geom}))/2 as centre_y FROM {output_table} WHERE raw_data IS NULL AND NOT ST_IsEmpty({geom});".format(output_table=self.output_table, geom=self.output_geom_col)
+        elif self.output_geom_type == 'point':
+            query = "SELECT id, ST_X({geom}) as centre_x, ST_Y({geom}) as centre_y FROM {output_table} WHERE raw_data IS NULL AND NOT ST_IsEmpty({geom});".format(output_table=self.output_table, geom=self.output_geom_col)
+        else:
+            raise TypeError
         db_cursor.execute(query)
         boxes_to_update = db_cursor.fetchall()
         for (id, centre_x, centre_y) in percentage_printer(boxes_to_update, msg="Populating raw data:"):
