@@ -222,7 +222,7 @@ class OSMStatsAggregator(object):
 
             # dodgy string joining for SQL here. Here be dragons. need it cause we need postgres to evaluate the function calls
             query_prefix = "INSERT INTO {output_table} ( {output_geom_col} ) VALUES ".format(output_table=self.output_table, output_geom_col=self.output_geom_col)
-            for bbox_groups in batch(self.generate_boxes(), 1000):
+            for bbox_groups in batch(self.generate_boxes(), 10000):
                 query = query_prefix + ", ".join("("+x['point_wkt']+")" for x in bbox_groups) + ";"
                 db_cursor.execute(query)
 
