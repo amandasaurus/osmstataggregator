@@ -139,11 +139,16 @@ class OSMStatsAggregator(object):
             return
 
 
-        possible_columns = sorted(self.properties([]).keys())
+        possible_columns = self.properties([])
 
         cursor.execute("CREATE TABLE {0} (id serial primary key, raw_data text[] default NULL, properties_calculated boolean DEFAULT FALSE);".format(self.output_table))
-        for column in possible_columns:
-            cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TEXT DEFAULT NULL;".format(self.output_table, column))
+        for column in sorted(possible_columns):
+            if type(possible_columns[column]) in [str, basestring, unicode]:
+                cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TEXT DEFAULT NULL;".format(self.output_table, column))
+            elif type(possible_columns[column]) in [int, float]:
+                cursor.execute("ALTER TABLE {0} ADD COLUMN {1} REAL DEFAULT NULL;".format(self.output_table, column))
+            else:
+                raise TypeError
 
         if self.output_geom_type == 'polygon':
             cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'MULTIPOLYGON', 2);".format(self.output_table, self.output_geom_col, self.srid))
