@@ -372,6 +372,24 @@ class OSMStatsAggregator(object):
     def clean_row_data(self, row):
         """Python data cleaning/sanitization. This does nothing, but subclasses might want to override it"""
         return row
+
+    def convert_to_polygons(self):
+        if self.output_geom_type == 'polygon':
+            return
+        elif self.output_geom_type == 'point':
+            query = "alter table {output_table} alter column {output_geom_col} type geometry(MultiPolygon, {srid}) using ST_Multi(ST_MakeEnvelope(ST_X({output_geom_col})-({increment}/2), ST_Y({output_geom_col})-({increment}/2), ST_X({output_geom_col})+({increment}/2), ST_Y({output_geom_col})+({increment}/2), {srid}));"
+            query = query.format(
+                output_geom_col=self.output_geom_col, output_table=self.output_table,
+                srid=self.srid, increment=self.increment)
+
+            conn = self.database_connection()
+            db_cursor = conn.cursor()
+            print "Converting to polygons"
+            db_cursor.execute(query)
+            print "done."
+            conn.commit()
+        else:
+            raise ValueError
         
         
     def main(self):
@@ -386,6 +404,8 @@ class OSMStatsAggregator(object):
             self.populate_raw_data()
 
             self.calculate_properties()
+
+            self.convert_to_polygons()
             print
 
         finally:
