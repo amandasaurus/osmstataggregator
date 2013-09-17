@@ -72,7 +72,7 @@ class OSMStatsAggregator(object):
         """
         parser = argparse.ArgumentParser()
 
-        # for bix size
+        # for box size
         parser.add_argument('-i', '--increment', default=self.increment, type=float)
         parser.add_argument('-t', '--top', default=self.top, type=float)
         parser.add_argument('-l', '--left', default=self.left, type=float)
@@ -86,7 +86,6 @@ class OSMStatsAggregator(object):
         parser.add_argument('--output-geom-type', default=self.output_geom_type, choices=['polygon', 'point'])
 
         parser.add_argument('-d', '--database', default=self.database, type=str)
-        parser.add_argument('--max-distance', default=30.0, type=float)
 
         parser.add_argument('--srid', default=self.srid, type=int)
 
@@ -100,8 +99,6 @@ class OSMStatsAggregator(object):
 
         parser.add_argument('--recalculate-properties',action='store_true', default=False)
 
-        # FIXME clean up SRID. we have it twice
-        # FIXME --input-*-* are all over the place
         args = parser.parse_args()
 
         # Save to self
@@ -113,6 +110,7 @@ class OSMStatsAggregator(object):
         assert self.minlon < self.maxlon
         assert self.minlat < self.maxlat
         assert self.increment > 0
+        assert self.rows_to_take >= 1
 
         self.land_table, self.land_geom_col = self.land.split(".")
 
