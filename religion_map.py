@@ -97,10 +97,10 @@ class GlobalReligionMap(PointMap, ReligionMap):
     output_table = "religion_points_world"
     increment = 0.1
 
-class EuropeReligionMap(osmstataggregator.EuropeArea, ReligionMap):
-    output_table = "religion_euro_big"
-    increment = 0.1
-    cut_land_boxes = False
+class EuropeReligionMap(PointMap, osmstataggregator.EuropeArea, ReligionMap):
+    output_table = "religion_euro_points"
+    increment = 0.05
 
 if __name__ == '__main__':
-    GlobalReligionMap().main()
+    EuropeReligionMap().main()
+    #GlobalReligionMap().main()
