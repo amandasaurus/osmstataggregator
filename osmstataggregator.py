@@ -349,7 +349,7 @@ class OSMStatsAggregator(object):
             # Raw data is an array of TEXT, each element is the distance to a point, and then the input data columns
             # e.g. { '12|christian|catholic', '23|christian|', … }
             # So split it into a 2d list of list. Would like to have a native postgres 2d array (e.g.g text[][]), but it couldn't work with the aggregates.
-            raw_data = [x.split(self.internal_string_sep, 3) for x in raw_data]
+            raw_data = [x.split(self.internal_string_sep, 1+len(self.input_data_cols)) for x in raw_data]
 
             # floatify the distance (first element)
             raw_data = [[float(item[0])] + self.clean_row_data(item[1:]) for item in raw_data]
