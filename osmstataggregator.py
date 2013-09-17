@@ -356,6 +356,9 @@ class OSMStatsAggregator(object):
             # floatify the distance (first element)
             raw_data = [[float(item[0])] + self.clean_row_data(item[1:]) for item in raw_data]
 
+            # raw data not guarantted to be sorted by distance ascending, so do it here
+            raw_data.sort(key=lambda r:r[0])
+
             properties = self.properties(raw_data)
             properties = [(k, properties[k]) for k in sorted(properties.keys())]
             query = ("UPDATE {output_table} SET properties_calculated = TRUE, " + ", ".join(k+" = %s" for k, v in properties) + " WHERE id = {id};").format(output_table=self.output_table, id=id)
