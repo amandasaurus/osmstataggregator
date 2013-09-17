@@ -374,20 +374,40 @@ class OSMStatsAggregator(object):
         return row
 
     def convert_to_polygons(self):
+        """
+        Convert the geometry to polygons if needed
+        """
+
         if self.output_geom_type == 'polygon':
             return
         elif self.output_geom_type == 'point':
-            query = "alter table {output_table} alter column {output_geom_col} type geometry(MultiPolygon, {srid}) using ST_Multi(ST_MakeEnvelope(ST_X({output_geom_col})-({increment}/2), ST_Y({output_geom_col})-({increment}/2), ST_X({output_geom_col})+({increment}/2), ST_Y({output_geom_col})+({increment}/2), {srid}));"
-            query = query.format(
-                output_geom_col=self.output_geom_col, output_table=self.output_table,
-                srid=self.srid, increment=self.increment)
-
+            # check geometry_columns to see if we need to do this
             conn = self.database_connection()
             db_cursor = conn.cursor()
-            print "Converting to polygons"
-            db_cursor.execute(query)
-            print "done."
-            conn.commit()
+            db_cursor.execute("select type from geometry_columns where f_table_name =  %s and f_geometry_column = %s", [self.output_table, self.output_geom_col])
+            rows = db_cursor.fetchall()
+            assert len(rows) == 1
+            type = rows[0][0].lower()
+            if type == 'multipolygon':
+                # nothing to do here
+                print "Already polygonified, nothing to do here"
+            elif type == 'point':
+                # convert to a polygon
+                query = """
+                    alter table {output_table}
+                        alter column {output_geom_col} type geometry(MultiPolygon, {srid})
+                            using ST_Multi(ST_MakeEnvelope(ST_X({output_geom_col})-({increment}/2), ST_Y({output_geom_col})-({increment}/2), ST_X({output_geom_col})+({increment}/2), ST_Y({output_geom_col})+({increment}/2), {srid}));
+                    """
+                query = query.format(
+                    output_geom_col=self.output_geom_col, output_table=self.output_table,
+                    srid=self.srid, increment=self.increment)
+
+                print "Converting to polygons"
+                db_cursor.execute(query)
+                print "done."
+                conn.commit()
+            else:
+                raise ValueError("Unknown column type "+type)
         else:
             raise ValueError
         
