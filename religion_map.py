@@ -75,12 +75,6 @@ class ReligionMap(osmstataggregator.OSMStatsAggregator):
             results['weighted_most_common_religion'] = weighted_religions[0]
 
 
-
-        for k, v in results.items():
-            if v is None:
-                results[k] = 'NULL'
-            #else:
-            #    results[k] = v
         return results
 
 
