@@ -64,6 +64,8 @@ class OSMStatsAggregator(object):
     start_from_scratch = False
     rows_to_take = 100
 
+    internal_string_sep = "|"
+
     def parse_args(self):
         """
         Parse command line options and figure out the settings
@@ -286,7 +288,7 @@ class OSMStatsAggregator(object):
         else:
             raise TypeError
         
-        data_cols = ", '|', ".join(self.input_data_cols)
+        data_cols = ", "+self.internal_string_sep+", ".join(self.input_data_cols)
 
         # do
         query = """update
@@ -295,7 +297,7 @@ class OSMStatsAggregator(object):
                         select array(select
                             CONCAT(
                                 ST_Distance_Sphere({input_data_table}.{input_geom_col}, {output_geom_as_point})::text,
-                                '|',
+                                {internal_string_sep!r},
                                 {data_cols}
                                 )
                             from {input_data_table} order by {input_data_table}.{input_geom_col}<->{output_geom_as_point}
@@ -305,7 +307,7 @@ class OSMStatsAggregator(object):
         query = query.format(
             output_table=self.output_table, input_data_table=self.input_data_table, input_geom_col=self.input_geom_col,
             data_cols = data_cols, output_geom_as_point=output_geom_as_point,
-            limit=self.rows_to_take,
+            limit=self.rows_to_take, internal_string_sep=self.internal_string_sep,
         )
         db_cursor.execute(query)
         conn.commit()
@@ -330,7 +332,7 @@ class OSMStatsAggregator(object):
         reading_cursor.execute(query)
         #boxes_to_update = [row for row in reading_cursor]
         for (id, raw_data) in percentage_printer(reading_cursor, msg="Calculating properties:", total=total):
-            raw_data = [x.split("|", 3) for x in raw_data]
+            raw_data = [x.split(self.internal_string_sep, 3) for x in raw_data]
             raw_data = [[float(item[0])] + self.clean_row_data(item[1:]) for item in raw_data]
             properties = self.properties(raw_data)
             properties = [(k, properties[k]) for k in sorted(properties.keys())]
