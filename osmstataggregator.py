@@ -234,6 +234,7 @@ class OSMStatsAggregator(object):
             print "removed."
 
 
+
         elif self.output_geom_type == 'polygon':
             for bbox in self.generate_boxes():
                 if not self.cut_land_boxes:
@@ -426,7 +427,6 @@ class OSMStatsAggregator(object):
             self.calculate_properties()
 
             self.convert_to_polygons()
-            print
 
         finally:
             # Commit anything unsaved yet
