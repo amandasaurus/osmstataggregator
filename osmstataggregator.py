@@ -282,6 +282,9 @@ class OSMStatsAggregator(object):
         conn.commit()
 
     def populate_raw_data(self):
+        """
+        For each of the points, populate the raw_data column with the closest raw data
+        """
         conn = self.database_connection()
         db_cursor = conn.cursor()
 
@@ -314,13 +317,18 @@ class OSMStatsAggregator(object):
             data_cols = data_cols, output_geom_as_point=output_geom_as_point,
             limit=self.rows_to_take, internal_string_sep=self.internal_string_sep,
         )
+
+        print "Calculating raw_data for each item..."
         db_cursor.execute(query)
+        print "done."
         conn.commit()
 
     def calculate_properties(self):
+        """
+        Given the raw data for each point, aggregate and calculate our stats
+        """
         conn = self.database_connection()
 
-        # Give it a name, so it'll use a server side cursor. This is more memory effecient for large results
 
         writing_cursor = conn.cursor()
 
@@ -333,12 +341,19 @@ class OSMStatsAggregator(object):
         total = reading_cursor.fetchall()[0][0]
 
         query = "SELECT id, raw_data FROM {output_table} WHERE properties_calculated IS FALSE AND raw_data IS NOT NULL".format(output_table=self.output_table)
+
+        # Give it a name, so it'll use a server side cursor. This is more memory effecient for large results
         reading_cursor = conn.cursor("reading_properties")
         reading_cursor.execute(query)
-        #boxes_to_update = [row for row in reading_cursor]
         for (id, raw_data) in percentage_printer(reading_cursor, msg="Calculating properties:", total=total):
+            # Raw data is an array of TEXT, each element is the distance to a point, and then the input data columns
+            # e.g. { '12|christian|catholic', '23|christian|', … }
+            # So split it into a 2d list of list. Would like to have a native postgres 2d array (e.g.g text[][]), but it couldn't work with the aggregates.
             raw_data = [x.split(self.internal_string_sep, 3) for x in raw_data]
+
+            # floatify the distance (first element)
             raw_data = [[float(item[0])] + self.clean_row_data(item[1:]) for item in raw_data]
+
             properties = self.properties(raw_data)
             properties = [(k, properties[k]) for k in sorted(properties.keys())]
             query = ("UPDATE {output_table} SET properties_calculated = TRUE, " + ", ".join(k+" = %s" for k, v in properties) + " WHERE id = {id};").format(output_table=self.output_table, id=id)
@@ -346,10 +361,10 @@ class OSMStatsAggregator(object):
 
 
     def clean_row_data(self, row):
+        """Python data cleaning/sanitization. This does nothing, but subclasses might want to override it"""
         return row
         
         
-
     def main(self):
         try:
 
