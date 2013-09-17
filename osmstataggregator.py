@@ -161,6 +161,7 @@ class OSMStatsAggregator(object):
         cursor.execute("create index {0}__properties_calculated on {0} (properties_calculated);".format(self.output_table))
         cursor.execute("create index {0}__{1} on {0} using gist ({1});".format(self.output_table, self.output_geom_col))
         conn.commit()
+        cursor.close()
 
 
     def generate_boxes(self):
@@ -280,6 +281,7 @@ class OSMStatsAggregator(object):
                 db_cursor.execute(query)
 
         conn.commit()
+        db_cursor.close()
 
     def populate_raw_data(self):
         """
@@ -358,6 +360,10 @@ class OSMStatsAggregator(object):
             properties = [(k, properties[k]) for k in sorted(properties.keys())]
             query = ("UPDATE {output_table} SET properties_calculated = TRUE, " + ", ".join(k+" = %s" for k, v in properties) + " WHERE id = {id};").format(output_table=self.output_table, id=id)
             writing_cursor.execute(query, [v for k, v in properties])
+
+        writing_cursor.close()
+        reading_cursor.close()
+
 
 
     def clean_row_data(self, row):
