@@ -296,7 +296,7 @@ class OSMStatsAggregator(object):
         else:
             raise TypeError
         
-        data_cols = ", "+self.internal_string_sep+", ".join(self.input_data_cols)
+        data_cols = (", "+repr(self.internal_string_sep)+", ").join(self.input_data_cols)
 
         # do
         query = """update
