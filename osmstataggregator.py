@@ -131,33 +131,48 @@ class OSMStatsAggregator(object):
         query = "SELECT 1 FROM pg_catalog.pg_tables WHERE  tablename = '{output_table}' limit 1;".format(output_table=self.output_table)
         cursor.execute(query)
         rows = cursor.fetchall()
-        if len(rows) > 0:
+        table_exists = len(rows) > 0
+        if table_exists:
             # table exists
             print "Table {output_table} already exists, not re-creating".format(output_table=self.output_table)
-            return
 
+        else:
+            cursor.execute("CREATE TABLE {0} (id serial primary key, raw_data text[] default NULL, properties_calculated boolean DEFAULT FALSE);".format(self.output_table))
+
+        # What columns are there?
+        if table_exists:
+            cursor.execute("select column_name from information_schema.columns where table_name = %s", [self.output_table])
+            existing_columns = [x[0] for x in cursor.fetchall()]
+        else:
+            existing_columns = []
 
         possible_columns = self.properties([])
-
-        cursor.execute("CREATE TABLE {0} (id serial primary key, raw_data text[] default NULL, properties_calculated boolean DEFAULT FALSE);".format(self.output_table))
         for column in sorted(possible_columns):
-            if type(possible_columns[column]) in [str, basestring, unicode]:
-                cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TEXT DEFAULT NULL;".format(self.output_table, column))
-            elif type(possible_columns[column]) in [int, float]:
-                cursor.execute("ALTER TABLE {0} ADD COLUMN {1} REAL DEFAULT NULL;".format(self.output_table, column))
+            if column not in existing_columns:
+                # we're adding a properties column, so we defintily need to recalculate
+                self.recalculate_properties = True
+
+                if type(possible_columns[column]) in [str, basestring, unicode]:
+                    cursor.execute("ALTER TABLE {0} ADD COLUMN {1} TEXT DEFAULT NULL;".format(self.output_table, column))
+                elif type(possible_columns[column]) in [int, float]:
+                    cursor.execute("ALTER TABLE {0} ADD COLUMN {1} REAL DEFAULT NULL;".format(self.output_table, column))
+                else:
+                    raise TypeError
+
+        if not table_exists:
+            # Need to create the geom column
+            if self.output_geom_type == 'polygon':
+                cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'MULTIPOLYGON', 2);".format(self.output_table, self.output_geom_col, self.srid))
+            elif self.output_geom_type == 'point':
+                cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'POINT', 2);".format(self.output_table, self.output_geom_col, self.srid))
             else:
-                raise TypeError
+                raise ValueError
 
-        if self.output_geom_type == 'polygon':
-            cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'MULTIPOLYGON', 2);".format(self.output_table, self.output_geom_col, self.srid))
-        elif self.output_geom_type == 'point':
-            cursor.execute("SELECT AddGeometryColumn('{0}', '{1}', {2}, 'POINT', 2);".format(self.output_table, self.output_geom_col, self.srid))
-        else:
-            raise ValueError
+        if not table_exists:
+            cursor.execute("create index {0}__null_raw_data on {0} (raw_data) where raw_data IS NULL;".format(self.output_table))
+            cursor.execute("create index {0}__properties_calculated on {0} (properties_calculated);".format(self.output_table))
+            cursor.execute("create index {0}__{1} on {0} using gist ({1});".format(self.output_table, self.output_geom_col))
 
-        cursor.execute("create index {0}__null_raw_data on {0} (raw_data) where raw_data IS NULL;".format(self.output_table))
-        cursor.execute("create index {0}__properties_calculated on {0} (properties_calculated);".format(self.output_table))
-        cursor.execute("create index {0}__{1} on {0} using gist ({1});".format(self.output_table, self.output_geom_col))
         conn.commit()
         cursor.close()
 
