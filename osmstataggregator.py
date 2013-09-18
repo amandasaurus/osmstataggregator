@@ -354,6 +354,8 @@ class OSMStatsAggregator(object):
         if self.recalculate_properties:
             writing_cursor.execute("UPDATE {output_table} SET properties_calculated = FALSE WHERE properties_calculated IS TRUE;".format(output_table=self.output_table))
 
+        writing_cursor.execute("ANALYZE {output_table};".format(output_table=self.output_table))
+        writing_cursor.execute("REINDEX INDEX {output_table}__properties_calculated;".format(output_table=self.output_table))
         reading_cursor = conn.cursor()
         query = "SELECT count(*) FROM {output_table} WHERE properties_calculated IS FALSE".format(output_table=self.output_table)
         reading_cursor.execute(query)
