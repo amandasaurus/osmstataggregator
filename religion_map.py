@@ -96,5 +96,5 @@ class EuropeReligionMap(PointMap, osmstataggregator.EuropeArea, ReligionMap):
     increment = 0.05
 
 if __name__ == '__main__':
-    EuropeReligionMap().main()
-    #GlobalReligionMap().main()
+    #EuropeReligionMap().main()
+    GlobalReligionMap().main()

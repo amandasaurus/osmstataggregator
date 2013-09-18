@@ -3,6 +3,8 @@ import osmstataggregator
 
 class Rel(osmstataggregator.BritainAndIrelandArea, ReligionMap):
     output_table = 'religion_brirl'
+    output_geom_type = 'point'
+    increment = 0.025
 
 
 if __name__ == '__main__':
