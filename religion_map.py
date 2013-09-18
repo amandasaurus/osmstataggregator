@@ -40,11 +40,19 @@ class ReligionMap(osmstataggregator.OSMStatsAggregator):
             'buddhist_score': 0,
             'shinto_score': 0,
             'jewish_score': 0,
+
+             # closest place of worship (&3rd closest)
+             # tells us how accurate this is
+            'closest_pow': 0,
+            'closest_3_pow': 0,
         }
         if len(rows) > 0:
             # Return closest
             results['closest_religion'] = rows[0][1]
             results['closest_denomination'] = rows[0][2]
+
+            results['closest_pow'] = rows[0][0]
+            results['closest_3_pow'] = rows[2][0]
 
             results['most_common_religion'], results['most_common_denomination'] = ReligionMap._most_common(rows)
             results['most_common_10_religion'], results['most_common_10_denomination'] = ReligionMap._most_common(rows[:10])
