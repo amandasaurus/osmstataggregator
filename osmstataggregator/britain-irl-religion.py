@@ -1,5 +1,5 @@
-from osmstataggregator import BritainAndIrelandArea
-from .religion_map import ReligionMap
+from areas import BritainAndIrelandArea
+from religion_map import ReligionMap
 
 class Rel(BritainAndIrelandArea, ReligionMap):
     output_table = 'religion_brirl'

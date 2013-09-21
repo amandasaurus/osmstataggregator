@@ -1,5 +1,8 @@
-from common import OSMStatsAggregator, IrelandArea, EuropeArea
 from collections import Counter
+
+# TODO use .common/.areas here?
+from common import OSMStatsAggregator
+from areas import IrelandArea, EuropeArea
 
 class ReligionMap(OSMStatsAggregator):
     input_data_table = "religion_point"
