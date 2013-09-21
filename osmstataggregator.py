@@ -230,6 +230,7 @@ class OSMStatsAggregator(object):
             print "Table {output_table} already has rows, not re-creating land boxes".format(output_table=self.output_table)
             return
 
+        # TODO point & polygon-non-cut seem to be doing the same thing, maybe merge?
 
         if self.output_geom_type == 'point':
             ## For points, we first put all the points in the DB
@@ -267,6 +268,7 @@ class OSMStatsAggregator(object):
                         bbox['geom'] = bbox['box_wkt']
                 else:
 
+                    # Big complicated query that generates bboxes based on the land polygons.
                     query = """SELECT
                             ST_Multi(ST_Union(
                                 CASE
