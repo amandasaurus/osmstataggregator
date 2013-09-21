@@ -1,7 +1,7 @@
-import osmstataggregator
+from common import OSMStatsAggregator, IrelandArea, EuropeArea
 from collections import Counter
 
-class ReligionMap(osmstataggregator.OSMStatsAggregator):
+class ReligionMap(OSMStatsAggregator):
     input_data_table = "religion_point"
     input_data_cols = ['religion', 'denomination']
     land = 'land_polygons.the_geom'
@@ -92,14 +92,14 @@ class ReligionMap(osmstataggregator.OSMStatsAggregator):
 class PointMap(object):
     output_geom_type = 'point'
 
-class IrelandReligionMap(ReligionMap, osmstataggregator.IrelandArea):
+class IrelandReligionMap(ReligionMap, IrelandArea):
     output_table = "religion_irl"
 
 class GlobalReligionMap(PointMap, ReligionMap):
     output_table = "religion_points_world"
     increment = 0.1
 
-class EuropeReligionMap(PointMap, osmstataggregator.EuropeArea, ReligionMap):
+class EuropeReligionMap(PointMap, EuropeArea, ReligionMap):
     output_table = "religion_euro_points"
     increment = 0.05
 

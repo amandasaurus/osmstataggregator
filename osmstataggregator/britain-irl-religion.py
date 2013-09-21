@@ -1,7 +1,7 @@
-from religion_map import ReligionMap
-import osmstataggregator
+from osmstataggregator import BritainAndIrelandArea
+from .religion_map import ReligionMap
 
-class Rel(osmstataggregator.BritainAndIrelandArea, ReligionMap):
+class Rel(BritainAndIrelandArea, ReligionMap):
     output_table = 'religion_brirl'
     output_geom_type = 'point'
     increment = 0.025
